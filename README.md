@@ -1,6 +1,16 @@
 # copyv2rayall
 
-A new Flutter project.
+一个可以在任何设备运行的软件，无需服务器。使用webdav。在线copy。
+主要是v2ray。clash订阅链接。来回复制不方便，使用此app。丝滑同步！！！
+
+
+目前我自己用的是坚果云服务，免费的够用！
+
+#### 计划 
+
+- [ ] 动态设置webdav账号密码和地址。
+- [ ] 优化ui
+- [ ] 待定。。。
 
 ## Getting Started
 
