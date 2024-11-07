@@ -1,4 +1,22 @@
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webdav_client/webdav_client.dart';
+
+class GlobalConfig {
+  static String username = '';
+  static String password = '';
+
+  static Future<void> saveCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('username', username);
+    await prefs.setString('password', password);
+  }
+
+  static Future<void> loadCredentials() async {
+    final prefs = await SharedPreferences.getInstance();
+    username = prefs.getString('username') ?? '';
+    password = prefs.getString('password') ?? '';
+  }
+}
 
 class WebDavClientService {
   static WebDavClientService? _instance;
@@ -16,12 +34,17 @@ class WebDavClientService {
     return _instance!;
   }
 
+  static void resetInstance() {
+    _instance = null;
+    getInstance();
+  }
+
   // 构造函数
   void _initializeClient() {
     _client = newClient(
       'https://dav.jianguoyun.com/dav/',
-      user: 'xxxxxxxxxx@qq.com',
-      password: '00000000000',
+      user: GlobalConfig.username,
+      password: GlobalConfig.password,
     );
 
     // 设置默认的请求头

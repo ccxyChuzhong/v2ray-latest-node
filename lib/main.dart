@@ -6,7 +6,9 @@ import 'SwitchPage.dart';
 import 'WebDavClient.dart';
 import 'WinIndexPage.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await GlobalConfig.loadCredentials();
   runApp(const MyApp());
 }
 
