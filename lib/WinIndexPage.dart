@@ -1,7 +1,7 @@
 import 'dart:io';
 
-import 'package:copyv2rayall/ApkIndexPage.dart';
-import 'package:copyv2rayall/utils/Utils.dart';
+import 'package:v2ray_latest_node/ApkIndexPage.dart';
+import 'package:v2ray_latest_node/utils/Utils.dart';
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';

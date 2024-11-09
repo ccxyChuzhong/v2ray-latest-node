@@ -1,6 +1,6 @@
 import 'dart:io';
 
-import 'package:copyv2rayall/utils/Utils.dart';
+import 'package:v2ray_latest_node/utils/Utils.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
@@ -48,19 +48,19 @@ class _IndexPageState extends State<ApkIndexPage> {
               onPressed: () async {
                 client.read2File('/v2ray/$fileName', path + fileName,
                     onProgress: (c, t) {
-                      Clipboard.setData(ClipboardData(
-                          text: File(path + fileName).readAsStringSync()));
-                      EasyLoading.showSuccess('可用节点已复制到剪切板');
-                    });
+                  Clipboard.setData(ClipboardData(
+                      text: File(path + fileName).readAsStringSync()));
+                  EasyLoading.showSuccess('可用节点已复制到剪切板');
+                });
               },
-              child: const Text('复制可用节点', style: TextStyle(fontSize: 20)),
+              child: const Text('复制节点', style: TextStyle(fontSize: 20)),
             ),
             const SizedBox(height: 30),
             ElevatedButton(
               onPressed: () async {
                 readFileContent(v2rayFileName);
               },
-              child: const Text('V2Ray订阅地址', style: TextStyle(fontSize: 20)),
+              child: const Text('V2Ray地址', style: TextStyle(fontSize: 20)),
             ),
             const SizedBox(height: 30),
             Row(
@@ -71,14 +71,14 @@ class _IndexPageState extends State<ApkIndexPage> {
                     readFileContent(clashFileName);
                   },
                   child:
-                  const Text('复制Clash订阅地址', style: TextStyle(fontSize: 20)),
+                      const Text('复制Clash地址', style: TextStyle(fontSize: 20)),
                 ),
                 ElevatedButton(
                   onPressed: () async {
                     importContentToClash(clashFileName);
                   },
                   child:
-                  const Text('导入Clash订阅地址', style: TextStyle(fontSize: 20)),
+                      const Text('导入Clash地址', style: TextStyle(fontSize: 20)),
                 ),
               ],
             )
@@ -102,7 +102,6 @@ class _IndexPageState extends State<ApkIndexPage> {
 
   void _alertClashDialog(String value) async {
     List<String> urls = value.split('\n');
-
     await showDialog(
         context: context,
         builder: (context) {
@@ -120,7 +119,7 @@ class _IndexPageState extends State<ApkIndexPage> {
                       EasyLoading.showSuccess('正在导入。。。。。');
                       var uri = Uri.parse('clash://install-config?url=${urls[index]}&name=$domain');
                       if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri);
+                        await launchUrl(uri,mode: LaunchMode.externalApplication);
                       } else {
                         throw 'Could not launch ${urls[index]}';
                       }
@@ -133,6 +132,7 @@ class _IndexPageState extends State<ApkIndexPage> {
           );
         });
   }
+
 
   // 展示V2ray的订阅地址
   _alertDialog() async {

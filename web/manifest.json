@@ -1,6 +1,6 @@
 {
-    "name": "copyv2rayall",
-    "short_name": "copyv2rayall",
+    "name": "v2ray_latest_node",
+    "short_name": "v2ray_latest_node",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

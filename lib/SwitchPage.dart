@@ -1,5 +1,5 @@
-import 'package:copyv2rayall/ApkIndexPage.dart';
-import 'package:copyv2rayall/WinIndexPage.dart';
+import 'package:v2ray_latest_node/ApkIndexPage.dart';
+import 'package:v2ray_latest_node/WinIndexPage.dart';
 import 'package:flutter/material.dart';
 
 import 'WebDavClient.dart';
@@ -35,14 +35,14 @@ class _SwitchPageState extends State<SwitchPage>
           bottom: TabBar(
             tabs: tabs
                 .map((e) => Tab(
-              child: Container(
-                alignment: Alignment.center,
-                child: Text(
-                  e,
-                  style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ))
+                      child: Container(
+                        alignment: Alignment.center,
+                        child: Text(
+                          e,
+                          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                        ),
+                      ),
+                    ))
                 .toList(),
           ),
           actions: [
@@ -68,9 +68,9 @@ class _SwitchPageState extends State<SwitchPage>
 
   void _showSettingsDialog(BuildContext context) {
     TextEditingController usernameController =
-    TextEditingController(text: GlobalConfig.username);
+        TextEditingController(text: GlobalConfig.username);
     TextEditingController passwordController =
-    TextEditingController(text: GlobalConfig.password);
+        TextEditingController(text: GlobalConfig.password);
 
     showDialog(
       context: context,
@@ -84,6 +84,7 @@ class _SwitchPageState extends State<SwitchPage>
                 TextField(
                   controller: usernameController,
                   decoration: const InputDecoration(labelText: 'Username'),
+                  enableInteractiveSelection: true,
                 ),
                 TextField(
                   controller: passwordController,
@@ -103,6 +104,7 @@ class _SwitchPageState extends State<SwitchPage>
                     ),
                   ),
                   obscureText: !_isPasswordVisible,
+                  enableInteractiveSelection: true,
                 ),
               ],
             ),
@@ -115,10 +117,7 @@ class _SwitchPageState extends State<SwitchPage>
               ),
               TextButton(
                 onPressed: () async {
-                  // Update global configuration
-                  GlobalConfig.username = usernameController.text;
-                  GlobalConfig.password = passwordController.text;
-                  await GlobalConfig.saveCredentials();
+                  await GlobalConfig.saveCredentials(usernameController.text, passwordController.text);
                   // Reinitialize the client with new credentials
                   WebDavClientService.resetInstance();
                   Navigator.of(context).pop();

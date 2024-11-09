@@ -90,12 +90,12 @@ BEGIN
         BLOCK "040904e4"
         BEGIN
             VALUE "CompanyName", "com.example" "\0"
-            VALUE "FileDescription", "copyv2rayall" "\0"
+            VALUE "FileDescription", "v2ray_latest_node" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "copyv2rayall" "\0"
+            VALUE "InternalName", "v2ray_latest_node" "\0"
             VALUE "LegalCopyright", "Copyright (C) 2024 com.example. All rights reserved." "\0"
-            VALUE "OriginalFilename", "copyv2rayall.exe" "\0"
-            VALUE "ProductName", "copyv2rayall" "\0"
+            VALUE "OriginalFilename", "v2ray_latest_node.exe" "\0"
+            VALUE "ProductName", "v2ray_latest_node" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END

@@ -1,3 +1,4 @@
+import 'package:flutter_easyloading/flutter_easyloading.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:webdav_client/webdav_client.dart';
 
@@ -5,16 +6,22 @@ class GlobalConfig {
   static String username = '';
   static String password = '';
 
-  static Future<void> saveCredentials() async {
+  static Future<void> saveCredentials(String userName,String passWord) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('username', username);
-    await prefs.setString('password', password);
+    await prefs.setString('username', userName);
+    await prefs.setString('password', passWord);
+    GlobalConfig.username = userName;
+    GlobalConfig.password = passWord;
   }
 
   static Future<void> loadCredentials() async {
     final prefs = await SharedPreferences.getInstance();
-    username = prefs.getString('username') ?? '';
-    password = prefs.getString('password') ?? '';
+    if (prefs.containsKey('username')&& prefs.containsKey('password')) {
+      username = prefs.getString('username') ?? '';
+      password = prefs.getString('password') ?? '';
+    }else{
+      EasyLoading.showError('账号或者密码为空！');
+    }
   }
 }
 
@@ -35,8 +42,7 @@ class WebDavClientService {
   }
 
   static void resetInstance() {
-    _instance = null;
-    getInstance();
+    _instance!._initializeClient();
   }
 
   // 构造函数
