@@ -107,32 +107,35 @@ class _IndexPageState extends State<ApkIndexPage> {
         builder: (context) {
           return AlertDialog(
             title: const Text('导入Clash订阅地址'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: List.generate(urls.length, (index) {
-                Uri uri = Uri.parse(urls[index]);
-                String domain = uri.host;
-                return Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 5.0),
-                  child: ElevatedButton(
-                    onPressed: () async {
-                      EasyLoading.showSuccess('正在导入。。。。。');
-                      var uri = Uri.parse('clash://install-config?url=${urls[index]}&name=$domain');
-                      if (await canLaunchUrl(uri)) {
-                        await launchUrl(uri,mode: LaunchMode.externalApplication);
-                      } else {
-                        throw 'Could not launch ${urls[index]}';
-                      }
-                    },
-                    child: Text(domain),
-                  ),
-                );
-              }),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: List.generate(urls.length, (index) {
+                  Uri uri = Uri.parse(urls[index]);
+                  String domain = uri.host;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5.0),
+                    child: ElevatedButton(
+                      onPressed: () async {
+                        EasyLoading.showSuccess('正在导入.....');
+                        var uri = Uri.parse(
+                            'clash://install-config?url=${urls[index]}&name=$domain');
+                        if (await canLaunchUrl(uri)) {
+                          await launchUrl(uri,
+                              mode: LaunchMode.externalApplication);
+                        } else {
+                          throw 'Could not launch ${urls[index]}';
+                        }
+                      },
+                      child: Text(domain),
+                    ),
+                  );
+                }),
+              ),
             ),
           );
         });
   }
-
 
   // 展示V2ray的订阅地址
   _alertDialog() async {

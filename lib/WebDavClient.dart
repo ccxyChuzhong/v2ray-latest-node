@@ -42,6 +42,8 @@ class WebDavClientService {
   }
 
   static void resetInstance() {
+    // 重新执行构造client 的方法 重新初始化
+    _instance = WebDavClientService._();
     _instance!._initializeClient();
   }
 

@@ -43,14 +43,23 @@ class _WinIndexPageState extends State<WinIndexPage> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
-            TextField(
-                autofocus: true,
-                textAlign: TextAlign.start,
-                minLines: 5,
-                maxLines: 20,
-                keyboardType: TextInputType.multiline,
-                controller: _unameController,
-                onChanged: (v) {}),
+            ConstrainedBox(
+              constraints: const BoxConstraints(
+                maxHeight: 300.0, // Set the maximum height for the TextField
+              ),
+              child: SingleChildScrollView(
+                child: TextField(
+                  autofocus: true,
+                  textAlign: TextAlign.start,
+                  minLines: 5,
+                  maxLines: 10,
+                  // Allow the TextField to expand
+                  keyboardType: TextInputType.multiline,
+                  controller: _unameController,
+                  onChanged: (v) {},
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () async {

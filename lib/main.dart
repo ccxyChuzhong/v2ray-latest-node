@@ -20,7 +20,7 @@ class MyApp extends StatelessWidget {
     WebDavClientService.getInstance();
 
     return MaterialApp(
-      title: 'Flutter Demo',
+      title: 'KaiDao',
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
