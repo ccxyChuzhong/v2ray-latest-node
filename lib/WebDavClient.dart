@@ -6,7 +6,7 @@ class GlobalConfig {
   static String username = '';
   static String password = '';
 
-  static Future<void> saveCredentials(String userName,String passWord) async {
+  static Future<void> saveCredentials(String userName, String passWord) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('username', userName);
     await prefs.setString('password', passWord);
@@ -16,10 +16,10 @@ class GlobalConfig {
 
   static Future<void> loadCredentials() async {
     final prefs = await SharedPreferences.getInstance();
-    if (prefs.containsKey('username')&& prefs.containsKey('password')) {
+    if (prefs.containsKey('username') && prefs.containsKey('password')) {
       username = prefs.getString('username') ?? '';
       password = prefs.getString('password') ?? '';
-    }else{
+    } else {
       EasyLoading.showError('账号或者密码为空！');
     }
   }
@@ -72,7 +72,18 @@ class WebDavClientService {
   }
 
   // 获取当前的 WebDav 客户端实例
-  Client getClient() {
-    return _client;
+   Client getClient() {
+    try {
+      // 尝试访问 _client。如果未初始化，会抛出 LateInitializationError。
+      return _client;
+    } catch (e) {
+      // 捕获到错误，说明 _client 可能由于某种原因未被初始化。
+      print("警告: WebDAV 客户端在 getClient() 中访问时未初始化，尝试重新初始化。错误: $e");
+      // 这种情况通常表明 getInstance() 或 resetInstance() 的调用流程有问题。
+      // 尝试在这里进行补救式初始化：
+      _initializeClient();
+      // 再次返回 _client。如果 _initializeClient() 内部失败，这里可能会再次抛出错误。
+      return _client;
+    }
   }
 }

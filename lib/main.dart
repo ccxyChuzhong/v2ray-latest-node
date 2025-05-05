@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
 
-import 'ApkIndexPage.dart';
 import 'SwitchPage.dart';
 import 'WebDavClient.dart';
-import 'WinIndexPage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

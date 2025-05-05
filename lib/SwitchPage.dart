@@ -1,7 +1,7 @@
-import 'package:v2ray_latest_node/ApkIndexPage.dart';
 import 'package:v2ray_latest_node/WinIndexPage.dart';
 import 'package:flutter/material.dart';
 
+import 'SubscriptionPage.dart';
 import 'WebDavClient.dart';
 
 class SwitchPage extends StatefulWidget {
@@ -14,10 +14,8 @@ class SwitchPage extends StatefulWidget {
 class _SwitchPageState extends State<SwitchPage>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
-  List tabs = ["上传", "拷贝"];
-  List ta = [const WinIndexPage(), const ApkIndexPage()];
-
-  // List ta = [ApkIndexPage(), ApkIndexPage()];
+  List tabs = ["订阅管理","节点管理"];
+  List ta = [const SubscriptionPage(),const WinIndexPage()];
 
   @override
   void initState() {
@@ -25,8 +23,41 @@ class _SwitchPageState extends State<SwitchPage>
     _tabController = TabController(length: tabs.length, vsync: this);
   }
 
+  Widget _buildSideMenuItem({
+    required IconData icon,
+    required String label,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return Material(
+      color: selected ? Colors.white.withOpacity(0.18) : Colors.transparent,
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        hoverColor: Colors.white.withOpacity(0.08),
+        child: Container(
+          margin: const EdgeInsets.symmetric(horizontal: 12),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Icon(icon, color: Colors.white, size: 24),
+              const SizedBox(width: 16),
+              Text(
+                label,
+                style: const TextStyle(fontSize: 17, color: Colors.white, fontWeight: FontWeight.w500),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
+    // 统一去除侧边栏和抽屉，所有平台都只用顶部TabBar
     return DefaultTabController(
       length: tabs.length,
       child: Scaffold(
@@ -55,7 +86,6 @@ class _SwitchPageState extends State<SwitchPage>
           ],
         ),
         body: TabBarView(
-          //构建
           children: ta.map((e) {
             return Container(alignment: Alignment.center, child: e);
           }).toList(),
