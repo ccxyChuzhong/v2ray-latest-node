@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:webdav_client/webdav_client.dart';
 import 'WebDavClient.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
@@ -40,7 +42,7 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   bool loading = true;
   bool isGridLayout = false; // 控制布局类型：false=列表，true=网格
   final String filePath = '/webdav-subscribe/subscription.json';
-  late final dynamic client;
+  late final Client client;
 
   @override
   void initState() {
@@ -190,13 +192,21 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
         return _buildListCard(item, index);
       },
     );
-    
+
+    // 判断是否为手机端（Android/iOS 且屏幕宽度小于600）
+    bool isMobile = (defaultTargetPlatform == TargetPlatform.android ||
+                    defaultTargetPlatform == TargetPlatform.iOS) &&
+                    MediaQuery.of(context).size.width < 600;
+
+    int crossAxisCount = isMobile ? 3 : 5;
+    double aspectRatio = isMobile ? 0.8 : 1.1;
+      
     // 网格视图
     Widget gridView = GridView.builder(
       padding: const EdgeInsets.all(0),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 5, // 每行4个
-        childAspectRatio: 1.5, // 更矮的矩形
+      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+        crossAxisCount: crossAxisCount, // 每行4个
+        childAspectRatio: aspectRatio, // 更矮的矩形
         crossAxisSpacing: 6,
         mainAxisSpacing: 6,
       ),
@@ -217,8 +227,16 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
               topActionBar,
               Expanded(
                 child: subscriptions.isEmpty
-                  ? Center(child: Text("没有订阅数据", style: TextStyle(color: Colors.grey[600])))
-                  : isGridLayout ? gridView : listView,
+                  ? ListView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      children: [
+                        Padding(
+                          padding: const EdgeInsets.only(top: 80),
+                          child: Center(child: Text("没有订阅数据", style: TextStyle(color: Colors.grey[600]))),
+                        ),
+                      ],
+                    )
+                  : (isGridLayout ? gridView : listView),
               ),
             ],
           ),
@@ -309,53 +327,84 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
               ),
               
             // 操作按钮
-            const Divider(),
+            const Divider(height: 8),
             Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                IconButton(
-                  icon: const Icon(Icons.edit, color: Colors.orange, size: 16),
-                  tooltip: "修改",
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => showEditDialog(item: item, index: index),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red, size: 16),
-                  tooltip: "删除",
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                  onPressed: () => deleteSubscription(index),
-                ),
-                IconButton(
-                  icon: Icon(Icons.flash_on, 
-                    color: (item.type == 'clash' || item.type == 'xray+clash') ? Colors.blue : Colors.grey,
-                    size: 16
+                // 修改按钮
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: InkWell(
+                    onTap: () => showEditDialog(item: item, index: index),
+                    child: Tooltip(
+                      message: "修改",
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        child: const Icon(Icons.edit, color: Colors.orange, size: 10),
+                      ),
+                    ),
                   ),
-                  tooltip: "Clash导入",
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                  onPressed: (item.type == 'clash' || item.type == 'xray+clash') ? () async {
-                    EasyLoading.showSuccess('正在导入.....');
-                    var uri = Uri.parse(
-                        'clash://install-config?url=${item.url}&name=${item.name}');
-                    if (await canLaunchUrl(uri)) {
-                      await launchUrl(uri,
-                          mode: LaunchMode.externalApplication);
-                    } else {
-                      throw 'Could not launch ${item.url}';
-                    }
-                  } : null,
                 ),
-                IconButton(
-                  icon: const Icon(Icons.copy, color: Colors.green, size: 16),
-                  tooltip: "复制",
-                  constraints: const BoxConstraints(),
-                  padding: EdgeInsets.zero,
-                  onPressed: () async {
-                    await Clipboard.setData(ClipboardData(text: item.url));
-                    EasyLoading.showSuccess('已复制到剪贴板');
-                  },
+                
+                // 删除按钮
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: InkWell(
+                    onTap: () => deleteSubscription(index),
+                    child: Tooltip(
+                      message: "删除",
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        child: const Icon(Icons.delete, color: Colors.red, size: 10),
+                      ),
+                    ),
+                  ),
+                ),
+                
+                // Clash导入按钮
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: InkWell(
+                    onTap: (item.type == 'clash' || item.type == 'xray+clash') ? () async {
+                      EasyLoading.showSuccess('正在导入.....');
+                      var uri = Uri.parse(
+                          'clash://install-config?url=${item.url}&name=${item.name}');
+                      if (await canLaunchUrl(uri)) {
+                        await launchUrl(uri, mode: LaunchMode.externalApplication);
+                      } else {
+                        throw 'Could not launch ${item.url}';
+                      }
+                    } : null,
+                    child: Tooltip(
+                      message: "Clash导入",
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        child: Icon(
+                          Icons.flash_on, 
+                          color: (item.type == 'clash' || item.type == 'xray+clash') ? Colors.blue : Colors.grey,
+                          size: 10
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                
+                // 复制按钮
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 2),
+                  child: InkWell(
+                    onTap: () async {
+                      await Clipboard.setData(ClipboardData(text: item.url));
+                      EasyLoading.showSuccess('已复制到剪贴板');
+                    },
+                    child: Tooltip(
+                      message: "复制",
+                      child: Container(
+                        padding: const EdgeInsets.all(2),
+                        child: const Icon(Icons.copy, color: Colors.green, size: 10),
+                      ),
+                    ),
+                  ),
                 ),
               ],
             ),
