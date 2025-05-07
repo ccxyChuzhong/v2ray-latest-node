@@ -30,7 +30,7 @@ jobs:
       run: flutter build macos --release
     
     - name: Archive production artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v2
       with:
         name: macos-app
         path: build/macos/Build/Products/Release/*.app
