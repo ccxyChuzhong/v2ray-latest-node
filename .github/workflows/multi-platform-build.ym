@@ -1,0 +1,186 @@
+name: Multi-Platform Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'  # 当推送以 v 开头的标签时触发，如 v1.0.0
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  version:
+    name: Create version number
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.get_version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          
+      - name: Get version
+        id: get_version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "version=dev-build-$(date +'%Y%m%d%H%M')" >> $GITHUB_OUTPUT
+          fi
+
+  build-macos:
+    name: Build macOS App
+    needs: version
+    runs-on: macos-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Install dependencies
+        run: flutter pub get
+        
+      - name: Enable macOS build
+        run: flutter config --enable-macos-desktop
+        
+      - name: Build macOS
+        run: flutter build macos --release
+        
+      - name: Compress macOS app
+        run: |
+          cd build/macos/Build/Products/Release
+          APP_NAME=$(ls *.app | head -n 1)
+          zip -r "${APP_NAME%.app}-macOS-${{ needs.version.outputs.version }}.zip" "$APP_NAME"
+        
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: macos-app
+          path: build/macos/Build/Products/Release/*.zip
+          
+  build-windows:
+    name: Build Windows App
+    needs: version
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Install dependencies
+        run: flutter pub get
+        
+      - name: Enable Windows build
+        run: flutter config --enable-windows-desktop
+        
+      - name: Build Windows
+        run: flutter build windows --release
+        
+      - name: Compress Windows app
+        run: |
+          cd build\windows\runner\Release
+          Compress-Archive -Path * -DestinationPath "app-windows-${{ needs.version.outputs.version }}.zip"
+        
+      - name: Upload Windows artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: windows-app
+          path: build/windows/runner/Release/*.zip
+  
+  build-android:
+    name: Build Android App
+    needs: version
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Set up Java
+        uses: actions/setup-java@v2
+        with:
+          distribution: 'zulu'
+          java-version: '11'
+        
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+          
+      - name: Install dependencies
+        run: flutter pub get
+        
+      - name: Setup Android signing
+        run: |
+          echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/keystore.jks
+          echo "storeFile=keystore.jks" > android/key.properties
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" >> android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
+        if: ${{ env.SECRETS_AVAILABLE == 'true' }}
+        env:
+          SECRETS_AVAILABLE: ${{ secrets.KEYSTORE_BASE64 != '' }}
+        
+      - name: Build APK
+        run: flutter build apk --release
+        
+      - name: Build App Bundle
+        run: flutter build appbundle --release
+        
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: android-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
+          
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: android-aab
+          path: build/app/outputs/bundle/release/app-release.aab
+          
+  create-release:
+    name: Create GitHub Release
+    needs: [version, build-macos, build-windows, build-android]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: artifacts
+          
+      - name: Display structure of downloaded files
+        run: ls -R artifacts
+        
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ needs.version.outputs.version }}
+          name: Release ${{ needs.version.outputs.version }}
+          draft: false
+          prerelease: false
+          files: |
+            artifacts/macos-app/*.zip
+            artifacts/windows-app/*.zip
+            artifacts/android-apk/*.apk
+            artifacts/android-aab/*.aab
+          body: |
+            ## Release ${{ needs.version.outputs.version }}
+            
+            ### Downloads
+            - 📱 Android: app-release.apk
+            - 🖥️ Windows: app-windows-${{ needs.version.outputs.version }}.zip
+            - 🍎 macOS: *-macOS-${{ needs.version.outputs.version }}.zip
+            
+            ### Changes
+            - [Add your release notes here]
