@@ -1,0 +1,138 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*' # 当推送带有 v 前缀的标签时触发，如 v1.0.0
+
+jobs:
+  build-android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.2'
+          channel: 'stable'
+      
+      - name: Flutter pub get
+        run: flutter pub get
+      
+      - name: Build APK
+        run: flutter build apk --release
+      
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: android-release
+          path: build/app/outputs/flutter-apk/app-release.apk
+  
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.2'
+          channel: 'stable'
+      
+      - name: Enable Windows Desktop
+        run: flutter config --enable-windows-desktop
+      
+      - name: Flutter pub get
+        run: flutter pub get
+      
+      - name: Build Windows
+        run: flutter build windows --release
+      
+      - name: Create Windows Installer
+        uses: joncloud/makensis-action@v4
+        with:
+          script-file: windows/installer.nsi
+          
+      - name: Upload EXE artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: windows-exe
+          path: build/windows/runner/Release/
+          
+      - name: Upload MSI artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: windows-installer
+          path: build/windows/installer/*.exe
+  
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.29.2'
+          channel: 'stable'
+      
+      - name: Enable macOS Desktop
+        run: flutter config --enable-macos-desktop
+      
+      - name: Flutter pub get
+        run: flutter pub get
+      
+      - name: Build macOS
+        run: flutter build macos --release
+      
+      - name: Create DMG
+        run: |
+          brew install create-dmg
+          create-dmg \
+            --volname "应用名称" \
+            --window-pos 200 120 \
+            --window-size 800 400 \
+            --icon-size 100 \
+            --app-drop-link 600 185 \
+            "build/macos/应用名称.dmg" \
+            "build/macos/Build/Products/Release/应用名称.app"
+      
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: macos-app
+          path: build/macos/Build/Products/Release/*.app
+          
+      - name: Upload DMG artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: macos-dmg
+          path: build/macos/*.dmg
+  
+  release:
+    needs: [build-android, build-windows, build-macos]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            android-release/app-release.apk
+            windows-exe/**/*.exe
+            windows-installer/*.exe
+            macos-app/**/*.app
+            macos-dmg/*.dmg
+          draft: false
+          prerelease: false
+          generate_release_notes: true
