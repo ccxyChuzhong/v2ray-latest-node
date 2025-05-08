@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io' as io;
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -6,6 +7,7 @@ import 'package:webdav_client/webdav_client.dart';
 import 'WebDavClient.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_easyloading/flutter_easyloading.dart';
+import 'package:yaml/yaml.dart';
 
 class SubscriptionItem {
   String name;
@@ -29,6 +31,40 @@ class SubscriptionItem {
   );
 }
 
+// 添加Clash-Verge配置相关类
+class ClashVergeItem {
+  String uid;
+  String type;
+  String? name;
+  String file;
+  int updated;
+  String? url;
+  Map<String, dynamic>? extra;
+  bool existsInSubscriptions = false;
+
+  ClashVergeItem({
+    required this.uid,
+    required this.type,
+    this.name,
+    required this.file,
+    required this.updated,
+    this.url,
+    this.extra,
+  });
+
+  // 从解析好的Map创建实例
+  factory ClashVergeItem.fromMap(Map<dynamic, dynamic> yaml) {
+    return ClashVergeItem(
+      uid: yaml['uid'] ?? '',
+      type: yaml['type'] ?? '',
+      name: yaml['name'],
+      file: yaml['file'] ?? '',
+      updated: yaml['updated'] ?? 0,
+      url: yaml['url'],
+      extra: yaml['extra'] != null ? Map<String, dynamic>.from(yaml['extra']) : null,
+    );
+  }
+}
 
 class SubscriptionPage extends StatefulWidget {
   const SubscriptionPage({Key? key}) : super(key: key);
@@ -142,12 +178,220 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     await saveSubscriptions();
   }
 
+  // 获取Clash Verge配置文件
+  Future<List<ClashVergeItem>> getClashVergeConfigs() async {
+    List<ClashVergeItem> result = [];
+    
+    try {
+      final String configPath = io.Platform.environment['USERPROFILE'] ?? '';
+      if (configPath.isEmpty) {
+        EasyLoading.showError('无法获取用户文件夹路径');
+        return [];
+      }
+      
+      final String vergeConfigPath = '$configPath\\AppData\\Roaming\\io.github.clash-verge-rev.clash-verge-rev\\profiles.yaml';
+      
+      final io.File file = io.File(vergeConfigPath);
+      if (await file.exists()) {
+        final String content = await file.readAsString();
+        
+        // 使用yaml库解析内容
+        final dynamic yamlDoc = loadYaml(content);
+        
+        if (yamlDoc is YamlMap && yamlDoc['items'] is YamlList) {
+          final YamlList items = yamlDoc['items'] as YamlList;
+          
+          if (items.isEmpty) {
+            EasyLoading.showInfo('Clash Verge配置文件中没有找到订阅项');
+            return [];
+          }
+          
+          for (var item in items) {
+            if (item is YamlMap) {
+              final ClashVergeItem vergeItem = ClashVergeItem.fromMap(item);
+              
+              // 只处理带URL的配置项
+              if (vergeItem.url != null && vergeItem.url!.isNotEmpty) {
+                // 检查是否已存在于当前订阅中
+                vergeItem.existsInSubscriptions = subscriptions.any((s) => s.url == vergeItem.url);
+                result.add(vergeItem);
+              }
+            }
+          }
+          
+          if (result.isEmpty) {
+            EasyLoading.showInfo('Clash Verge配置文件中没有找到有效的URL订阅');
+          }
+        } else {
+          EasyLoading.showError('Clash Verge配置文件格式不正确');
+        }
+      } else {
+        EasyLoading.showError('未找到Clash Verge配置文件: $vergeConfigPath');
+      }
+    } catch (e) {
+      EasyLoading.showError('读取配置文件失败: $e');
+    }
+    
+    return result;
+  }
+
+  // 显示Clash Verge配置列表弹窗
+  void showVergeConfigsDialog() async {
+    EasyLoading.show(status: '正在读取Clash Verge配置...');
+    final List<ClashVergeItem> configs = await getClashVergeConfigs();
+    EasyLoading.dismiss();
+    
+    if (configs.isEmpty) {
+      EasyLoading.showInfo('没有找到有效的订阅配置');
+      return;
+    }
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Clash Verge订阅'),
+        content: SizedBox(
+          width: double.maxFinite,
+          height: MediaQuery.of(context).size.height * 0.6, // 限制高度
+          child: Column(
+            children: [
+              Text('找到${configs.length}个订阅配置', style: const TextStyle(color: Colors.blue)),
+              const SizedBox(height: 10),
+              Expanded(
+                child: ListView.builder(
+                  shrinkWrap: true,
+                  itemCount: configs.length,
+                  itemBuilder: (context, index) {
+                    final item = configs[index];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 4),
+                      child: ListTile(
+                        title: Text(
+                          item.name ?? item.uid,
+                          style: const TextStyle(fontWeight: FontWeight.bold),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.url ?? '',
+                              style: const TextStyle(fontSize: 12, color: Colors.blue),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            Text(
+                              item.existsInSubscriptions ? '状态: 已存在' : '状态: 未添加',
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: item.existsInSubscriptions ? Colors.grey : Colors.green,
+                                fontWeight: item.existsInSubscriptions ? FontWeight.normal : FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                        trailing: IconButton(
+                          icon: Icon(
+                            Icons.add_circle,
+                            color: item.existsInSubscriptions ? Colors.grey : Colors.blue,
+                          ),
+                          tooltip: "添加到订阅列表",
+                          onPressed: item.existsInSubscriptions 
+                            ? null 
+                            : () => _addVergeConfigToSubscription(item, context),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('取消'),
+          ),
+          ElevatedButton(
+            onPressed: () => _addAllVergeConfigs(configs, context),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+            ),
+            child: const Text('全部添加'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  // 将Verge配置添加到订阅
+  void _addVergeConfigToSubscription(ClashVergeItem item, BuildContext dialogContext) async {
+    if (item.url == null || item.url!.isEmpty) return;
+    
+    final newSubscription = SubscriptionItem(
+      name: item.name ?? item.uid,
+      url: item.url!,
+      remark: '从Clash Verge导入',
+      type: 'clash',
+    );
+    
+    setState(() {
+      subscriptions.insert(0, newSubscription);
+    });
+    
+    await saveSubscriptions();
+    EasyLoading.showSuccess('添加成功');
+    
+    // 更新状态
+    item.existsInSubscriptions = true;
+    (dialogContext as Element).markNeedsBuild();
+  }
+  
+  // 批量添加所有未添加的配置
+  void _addAllVergeConfigs(List<ClashVergeItem> configs, BuildContext dialogContext) async {
+    int addedCount = 0;
+    
+    for (var item in configs) {
+      if (!item.existsInSubscriptions && item.url != null && item.url!.isNotEmpty) {
+        final newSubscription = SubscriptionItem(
+          name: item.name ?? item.uid,
+          url: item.url!,
+          remark: '从Clash Verge导入',
+          type: 'clash',
+        );
+        
+        subscriptions.insert(0, newSubscription);
+        item.existsInSubscriptions = true;
+        addedCount++;
+      }
+    }
+    
+    if (addedCount > 0) {
+      setState(() {});
+      await saveSubscriptions();
+      EasyLoading.showSuccess('成功添加$addedCount个订阅');
+    } else {
+      EasyLoading.showInfo('没有可添加的订阅');
+    }
+    
+    Navigator.pop(dialogContext);
+  }
+
   @override
   Widget build(BuildContext context) {
     if (loading) {
       return const Center(child: CircularProgressIndicator());
     }
     
+    // 判断是否为手机端（Android/iOS 且屏幕宽度小于600）
+    bool isMobile = (defaultTargetPlatform == TargetPlatform.android ||
+                    defaultTargetPlatform == TargetPlatform.iOS) &&
+                    MediaQuery.of(context).size.width < 600;
+
+    int crossAxisCount = isMobile ? 3 : 5;
+    double aspectRatio = isMobile ? 0.8 : 1.4;
+      
     // 顶部操作栏（新增订阅 + 布局切换）
     Widget topActionBar = Padding(
       padding: const EdgeInsets.only(bottom: 10.0),
@@ -164,6 +408,18 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             ),
           ),
           const SizedBox(width: 8),
+          // 添加Clash Verge配置获取按钮 - 仅在非移动端显示
+          if (!isMobile) // 使用条件判断，移动端不显示
+            Card(
+              color: Colors.amber[50],
+              child: IconButton(
+                icon: const Icon(Icons.file_download, color: Colors.amber),
+                tooltip: "获取Clash Verge配置",
+                onPressed: () => showVergeConfigsDialog(),
+              ),
+            ),
+          if (!isMobile) // 如果显示了上面的按钮，也要显示间距
+            const SizedBox(width: 8),
           Card(
             color: Colors.purple[50],
             child: IconButton(
@@ -184,23 +440,40 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
     );
     
     // 列表视图
-    Widget listView = ListView.builder(
+    Widget listView = ReorderableListView.builder(
       padding: const EdgeInsets.all(0), // 移除内边距，因为外部已有内边距
       itemCount: subscriptions.length,
+      onReorder: (oldIndex, newIndex) {
+        setState(() {
+          if (oldIndex < newIndex) {
+            newIndex -= 1;
+          }
+          final item = subscriptions.removeAt(oldIndex);
+          subscriptions.insert(newIndex, item);
+        });
+        saveSubscriptions(); // 保存更新后的顺序
+      },
+      buildDefaultDragHandles: false, // 不使用默认的拖动手柄
+      proxyDecorator: (child, index, animation) {
+        return AnimatedBuilder(
+          animation: animation,
+          builder: (BuildContext context, Widget? child) {
+            return Material(
+              elevation: 4.0,
+              color: Colors.transparent,
+              shadowColor: Colors.blue.withOpacity(0.4),
+              child: child,
+            );
+          },
+          child: child,
+        );
+      },
       itemBuilder: (context, index) {
         final item = subscriptions[index];
         return _buildListCard(item, index);
       },
     );
 
-    // 判断是否为手机端（Android/iOS 且屏幕宽度小于600）
-    bool isMobile = (defaultTargetPlatform == TargetPlatform.android ||
-                    defaultTargetPlatform == TargetPlatform.iOS) &&
-                    MediaQuery.of(context).size.width < 600;
-
-    int crossAxisCount = isMobile ? 3 : 5;
-    double aspectRatio = isMobile ? 0.8 : 1.1;
-      
     // 网格视图
     Widget gridView = GridView.builder(
       padding: const EdgeInsets.all(0),
@@ -248,8 +521,13 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   // 构建列表卡片
   Widget _buildListCard(SubscriptionItem item, int index) {
     return Card(
+      key: ValueKey(index),
       margin: const EdgeInsets.symmetric(vertical: 8),
       child: ListTile(
+        leading: ReorderableDragStartListener(
+          index: index,
+          child: const Icon(Icons.drag_handle, color: Colors.grey),
+        ),
         title: Text(item.name, style: const TextStyle(fontWeight: FontWeight.bold)),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
