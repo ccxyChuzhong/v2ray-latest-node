@@ -520,6 +520,26 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   
   // 构建列表卡片
   Widget _buildListCard(SubscriptionItem item, int index) {
+    // 判断是否是移动设备
+    final bool isMobileView = MediaQuery.of(context).size.width < 600;
+    
+    // 四个按钮，每个宽度30，至少需要120宽度
+    final double minButtonAreaWidth = 120.0;
+    
+    // 根据屏幕宽度和设备类型计算按钮区域宽度
+    final screenWidth = MediaQuery.of(context).size.width;
+    double dynamicButtonWidth;
+    
+    if (isMobileView) {
+      // 在移动设备上使用更大比例但更窄的最小宽度
+      dynamicButtonWidth = screenWidth * 0.35; // 屏幕宽度的35%
+      dynamicButtonWidth = dynamicButtonWidth.clamp(minButtonAreaWidth, 160.0); // 移动设备上的范围
+    } else {
+      // 在桌面设备上有更多空间
+      dynamicButtonWidth = screenWidth * 0.22; // 屏幕宽度的22%
+      dynamicButtonWidth = dynamicButtonWidth.clamp(minButtonAreaWidth, 200.0); // 桌面设备上的范围
+    }
+    
     return Card(
       key: ValueKey(index),
       margin: const EdgeInsets.symmetric(vertical: 8),
@@ -541,7 +561,10 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
             if (item.remark.isNotEmpty) Text("备注: ${item.remark}", style: TextStyle(color: Colors.grey[600])),
           ],
         ),
-        trailing: _buildActionButtons(item, index),
+        trailing: SizedBox(
+          width: dynamicButtonWidth, // 动态宽度
+          child: _buildActionButtons(item, index, isMobileView: isMobileView),
+        ),
       ),
     );
   }
@@ -703,55 +726,92 @@ class _SubscriptionPageState extends State<SubscriptionPage> {
   }
   
   // 构建操作按钮
-  Widget _buildActionButtons(SubscriptionItem item, int index) {
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        IconButton(
-          icon: const Icon(Icons.edit, color: Colors.orange),
-          tooltip: "修改",
-          iconSize: 20,
-          padding: EdgeInsets.zero,
-          onPressed: () => showEditDialog(item: item, index: index),
-        ),
-        const SizedBox(width: 2),
-        IconButton(
-          icon: const Icon(Icons.delete, color: Colors.red),
-          tooltip: "删除",
-          iconSize: 20,
-          padding: EdgeInsets.zero,
-          onPressed: () => deleteSubscription(index),
-        ),
-        const SizedBox(width: 2),
-        IconButton(
-          icon: Icon(Icons.flash_on, color: (item.type == 'clash' || item.type == 'xray+clash') ? Colors.blue : Colors.grey),
-          tooltip: "Clash导入",
-          iconSize: 20,
-          padding: EdgeInsets.zero,
-          onPressed: (item.type == 'clash' || item.type == 'xray+clash') ? () async {
-            EasyLoading.showSuccess('正在导入.....');
-            var uri = Uri.parse(
-                'clash://install-config?url=${item.url}&name=${item.name}');
-            if (await canLaunchUrl(uri)) {
-              await launchUrl(uri,
-                  mode: LaunchMode.externalApplication);
-            } else {
-              throw 'Could not launch ${item.url}';
-            }
-          } : null,
-        ),
-        const SizedBox(width: 2),
-        IconButton(
-          icon: const Icon(Icons.copy, color: Colors.green),
-          tooltip: "复制",
-          iconSize: 20,
-          padding: EdgeInsets.zero,
-          onPressed: () async {
-            await Clipboard.setData(ClipboardData(text: item.url));
-            EasyLoading.showSuccess('已复制到剪贴板');
-          },
-        ),
-      ],
+  Widget _buildActionButtons(SubscriptionItem item, int index, {bool isMobileView = false}) {
+    // 根据视图类型调整图标大小和内边距
+    final double iconSize = isMobileView ? 16.0 : 18.0;
+    // 使用更小的内边距来减少总宽度
+    final double spacing = isMobileView ? 0.0 : 2.0;
+    
+    // 使用FittedBox包装整个Row，确保在空间不足时可以缩放
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.end,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // 编辑按钮
+          Container(
+            width: 28,
+            height: 28,
+            margin: EdgeInsets.only(right: spacing),
+            child: IconButton(
+              icon: const Icon(Icons.edit, color: Colors.orange),
+              tooltip: "修改",
+              iconSize: iconSize,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(), // 移除默认约束
+              onPressed: () => showEditDialog(item: item, index: index),
+            ),
+          ),
+          
+          // 删除按钮
+          Container(
+            width: 28,
+            height: 28,
+            margin: EdgeInsets.only(right: spacing),
+            child: IconButton(
+              icon: const Icon(Icons.delete, color: Colors.red),
+              tooltip: "删除",
+              iconSize: iconSize,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(), // 移除默认约束
+              onPressed: () => deleteSubscription(index),
+            ),
+          ),
+          
+          // Clash导入按钮
+          Container(
+            width: 28,
+            height: 28,
+            margin: EdgeInsets.only(right: spacing),
+            child: IconButton(
+              icon: Icon(Icons.flash_on, color: (item.type == 'clash' || item.type == 'xray+clash') ? Colors.blue : Colors.grey),
+              tooltip: "Clash导入",
+              iconSize: iconSize,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(), // 移除默认约束
+              onPressed: (item.type == 'clash' || item.type == 'xray+clash') ? () async {
+                EasyLoading.showSuccess('正在导入.....');
+                var uri = Uri.parse(
+                    'clash://install-config?url=${item.url}&name=${item.name}');
+                if (await canLaunchUrl(uri)) {
+                  await launchUrl(uri,
+                      mode: LaunchMode.externalApplication);
+                } else {
+                  throw 'Could not launch ${item.url}';
+                }
+              } : null,
+            ),
+          ),
+          
+          // 复制按钮
+          Container(
+            width: 28,
+            height: 28,
+            child: IconButton(
+              icon: const Icon(Icons.copy, color: Colors.green),
+              tooltip: "复制",
+              iconSize: iconSize,
+              padding: EdgeInsets.zero,
+              constraints: const BoxConstraints(), // 移除默认约束
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: item.url));
+                EasyLoading.showSuccess('已复制到剪贴板');
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 }

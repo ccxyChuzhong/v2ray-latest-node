@@ -37,19 +37,29 @@ jobs:
           cd android && ./gradlew clean && cd ..
           flutter pub get
 
-      - name: Build APK
+      - name: Build Universal APK
         run: flutter build apk --release --verbose
+      
+      - name: Build ARM64 APK
+        run: flutter build apk --target-platform android-arm64 --split-per-abi
       
       - name: Check APK exists
         run: |
-          echo "Checking APK file path:"
+          echo "Checking APK files:"
           find build -name "*.apk" -type f
       
-      - name: Upload APK artifact
+      - name: Upload Universal APK artifact
         uses: actions/upload-artifact@main
         with:
           name: android-release
           path: build/app/outputs/flutter-apk/app-release.apk
+      
+      - name: Upload ARM64 APK artifact
+        uses: actions/upload-artifact@main
+        with:
+          name: android-arm64-release
+          path: build/app/outputs/flutter-apk/app-release-arm64-v8a.apk
+  
   
   build-windows:
     runs-on: windows-latest
@@ -86,14 +96,33 @@ jobs:
             # 查找可能的替代位置
             Get-ChildItem -Path build/windows -Recurse -Directory | ForEach-Object { Write-Host $_.FullName }
           }
-      
+
       - name: Create Windows ZIP package
         shell: powershell
         run: |
           $date = Get-Date -Format "yyyy-MM-dd"
           $zipName = "windows-release-$date.zip"
-          Compress-Archive -Path "build/windows/runner/Release/*" -DestinationPath "$zipName"
-          Write-Host "Created ZIP package: $zipName"
+          $releasePath = "build\windows\runner\Release"
+          
+          # 检查路径是否存在
+          if (Test-Path $releasePath) {
+            Write-Host "Release directory found at: $releasePath"
+            # 创建临时目录用于整理文件
+            $tempDir = "windows-release-package"
+            New-Item -ItemType Directory -Path $tempDir -Force
+            
+            # 复制所有文件到临时目录
+            Copy-Item -Path "$releasePath\*" -Destination $tempDir -Recurse
+            
+            # 压缩整个临时目录
+            Compress-Archive -Path $tempDir -DestinationPath $zipName
+            Write-Host "Created ZIP package: $zipName"
+          } else {
+            Write-Host "Error: Release directory not found at: $releasePath" -ForegroundColor Red
+            Write-Host "Searching for possible build output locations..."
+            Get-ChildItem -Path "build\windows" -Recurse -Directory | ForEach-Object { Write-Host $_.FullName }
+            exit 1
+          }
           
       - name: Upload Windows ZIP artifact
         uses: actions/upload-artifact@main
@@ -183,6 +212,7 @@ jobs:
         with:
           files: |
             android-release/app-release.apk
+            android-arm64-release/app-release-arm64-v8a.apk
             windows-zip/*.zip
             macos-app-zip/*.zip
             macos-dmg/*.dmg
