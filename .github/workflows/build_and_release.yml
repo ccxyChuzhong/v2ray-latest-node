@@ -2,8 +2,10 @@ name: Build and Release
 
 on:
   push:
-    tags:
-      - 'v*' # 当推送带有 v 前缀的标签时触发，如 v1.0.0
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:  # 允许手动触发
 
 jobs:
   build-android:
