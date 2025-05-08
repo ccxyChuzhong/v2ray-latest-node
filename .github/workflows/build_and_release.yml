@@ -9,6 +9,9 @@ on:
     branches: [ main ]
   workflow_dispatch:  # 允许手动触发
   
+# 添加这个权限配置
+permissions:
+  contents: write  # 给予写入内容的权限，包括创建发布
 jobs:
   build-android:
     runs-on: ubuntu-latest
