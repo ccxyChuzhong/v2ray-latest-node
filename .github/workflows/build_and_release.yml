@@ -12,6 +12,7 @@ on:
 # 添加这个权限配置
 permissions:
   contents: write  # 给予写入内容的权限，包括创建发布
+
 jobs:
   build-android:
     runs-on: ubuntu-latest
@@ -29,6 +30,7 @@ jobs:
         with:
           flutter-version: '3.29.2'
           channel: 'stable'
+          
       - name: Flutter clean and pub get
         run: |
           flutter clean
@@ -37,6 +39,11 @@ jobs:
 
       - name: Build APK
         run: flutter build apk --release --verbose
+      
+      - name: Check APK exists
+        run: |
+          echo "Checking APK file path:"
+          find build -name "*.apk" -type f
       
       - name: Upload APK artifact
         uses: actions/upload-artifact@main
@@ -64,22 +71,35 @@ jobs:
       - name: Build Windows
         run: flutter build windows --release
       
-      - name: Create Windows Installer
-        uses: joncloud/makensis-action@v4
-        with:
-          script-file: windows/installer.nsi
+      - name: Check Windows build outputs
+        shell: powershell
+        run: |
+          Write-Host "Checking Windows build outputs:"
+          Get-ChildItem -Path build -Recurse -Include "*.exe" | ForEach-Object { Write-Host $_.FullName }
           
-      - name: Upload EXE artifact
+          # 检查Release目录
+          if (Test-Path "build/windows/runner/Release") {
+            Write-Host "Release directory exists:"
+            Get-ChildItem -Path "build/windows/runner/Release" | ForEach-Object { Write-Host $_.FullName }
+          } else {
+            Write-Host "Release directory does not exist"
+            # 查找可能的替代位置
+            Get-ChildItem -Path build/windows -Recurse -Directory | ForEach-Object { Write-Host $_.FullName }
+          }
+      
+      - name: Create Windows ZIP package
+        shell: powershell
+        run: |
+          $date = Get-Date -Format "yyyy-MM-dd"
+          $zipName = "windows-release-$date.zip"
+          Compress-Archive -Path "build/windows/runner/Release/*" -DestinationPath "$zipName"
+          Write-Host "Created ZIP package: $zipName"
+          
+      - name: Upload Windows ZIP artifact
         uses: actions/upload-artifact@main
         with:
-          name: windows-exe
-          path: build/windows/runner/Release/
-          
-      - name: Upload MSI artifact
-        uses: actions/upload-artifact@main
-        with:
-          name: windows-installer
-          path: build/windows/installer/*.exe
+          name: windows-zip
+          path: windows-release-*.zip
   
   build-macos:
     runs-on: macos-latest
@@ -101,6 +121,27 @@ jobs:
       - name: Build macOS
         run: flutter build macos --release
       
+      - name: Check macOS build outputs
+        run: |
+          echo "Checking macOS build outputs:"
+          find build/macos -name "*.app" -type d
+          
+          # 获取app名称用于DMG创建
+          APP_PATH=$(find build/macos/Build/Products/Release -name "*.app" -type d)
+          APP_NAME=$(basename "$APP_PATH" .app)
+          echo "Found app: $APP_NAME at $APP_PATH"
+          echo "APP_NAME=$APP_NAME" >> $GITHUB_ENV
+          echo "APP_PATH=$APP_PATH" >> $GITHUB_ENV
+      
+      - name: Create macOS APP ZIP package
+        run: |
+          DATE=$(date +"%Y-%m-%d")
+          ZIP_NAME="macos-app-$DATE.zip"
+          cd $(dirname "$APP_PATH")
+          zip -r "$ZIP_NAME" "$(basename "$APP_PATH")"
+          mv "$ZIP_NAME" $GITHUB_WORKSPACE/
+          echo "Created ZIP package: $ZIP_NAME"
+      
       - name: Create DMG
         run: |
           brew install create-dmg
@@ -111,13 +152,13 @@ jobs:
             --icon-size 100 \
             --app-drop-link 600 185 \
             "build/macos/kaidao.dmg" \
-            "build/macos/Build/Products/Release/kaidao.app"
+            "${{ env.APP_PATH }}"
       
-      - name: Upload macOS artifact
+      - name: Upload macOS APP ZIP artifact
         uses: actions/upload-artifact@main
         with:
-          name: macos-app
-          path: build/macos/Build/Products/Release/*.app
+          name: macos-app-zip
+          path: macos-app-*.zip
           
       - name: Upload DMG artifact
         uses: actions/upload-artifact@main
@@ -132,17 +173,18 @@ jobs:
     steps:
       - name: Download all artifacts
         uses: actions/download-artifact@main
+        
       - name: Display structure of downloaded files
         run: ls -R
+        
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             android-release/app-release.apk
-            windows-exe/**/*.exe
-            windows-installer/*.exe
-            macos-app/**/*.app
+            windows-zip/*.zip
+            macos-app-zip/*.zip
             macos-dmg/*.dmg
           draft: false
           prerelease: false
