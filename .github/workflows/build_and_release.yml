@@ -3,10 +3,12 @@ name: Build and Release
 on:
   push:
     branches: [ main ]
+    tags:
+      - 'v*' # 增加对 v 开头的标签的支持，用于发布
   pull_request:
     branches: [ main ]
   workflow_dispatch:  # 允许手动触发
-
+  
 jobs:
   build-android:
     runs-on: ubuntu-latest
@@ -24,15 +26,17 @@ jobs:
         with:
           flutter-version: '3.29.2'
           channel: 'stable'
-      
-      - name: Flutter pub get
-        run: flutter pub get
-      
+      - name: Flutter clean and pub get
+        run: |
+          flutter clean
+          cd android && ./gradlew clean && cd ..
+          flutter pub get
+
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --verbose
       
       - name: Upload APK artifact
-        uses: actions/upload-artifact@main
+        uses: actions/upload-artifact@v3
         with:
           name: android-release
           path: build/app/outputs/flutter-apk/app-release.apk
