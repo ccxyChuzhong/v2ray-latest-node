@@ -102,13 +102,13 @@ jobs:
         run: |
           brew install create-dmg
           create-dmg \
-            --volname "应用名称" \
+            --volname "开导" \
             --window-pos 200 120 \
             --window-size 800 400 \
             --icon-size 100 \
             --app-drop-link 600 185 \
-            "build/macos/应用名称.dmg" \
-            "build/macos/Build/Products/Release/应用名称.app"
+            "build/macos/kaidao.dmg" \
+            "build/macos/Build/Products/Release/kaidao.app"
       
       - name: Upload macOS artifact
         uses: actions/upload-artifact@main
@@ -124,8 +124,23 @@ jobs:
   
   release:
     needs: [build-android, build-windows, build-macos]
+    if: github.event_name != 'pull_request'  # 不为 PR 创建发布
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # 获取所有历史记录
+          
+      - name: Generate tag
+        id: tag
+        run: |
+          # 基于日期和提交哈希生成标签
+          TAG_NAME="v$(date +'%Y.%m.%d')-$(git rev-parse --short HEAD)"
+          echo "TAG_NAME=$TAG_NAME" >> $GITHUB_OUTPUT
+          # 创建标签
+          git tag $TAG_NAME
+          git push origin $TAG_NAME
+
       - name: Download all artifacts
         uses: actions/download-artifact@main
         
@@ -133,6 +148,8 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.tag.outputs.TAG_NAME }}
+          name: Release ${{ steps.tag.outputs.TAG_NAME }}
           files: |
             android-release/app-release.apk
             windows-exe/**/*.exe
