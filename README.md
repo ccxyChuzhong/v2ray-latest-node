@@ -2,6 +2,8 @@
 
 一个跨平台的v2ray节点管理工具，支持通过WebDAV服务在多设备间同步v2ray节点信息和clash订阅链接。
 
+浏览器插件版本：https://github.com/ccxyChuzhong/kaidao-browser-plugin
+
 ## ✨ 功能特点
 
 - 🌐 **跨平台支持** - 支持Android、iOS、Windows、Linux、Web等多个平台
